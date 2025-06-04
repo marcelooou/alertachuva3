@@ -1,0 +1,50 @@
+# Stage 1: Build the application using Maven
+FROM maven:3.8.5-openjdk-17 AS build
+
+# Define o diretório de trabalho dentro do container de build
+WORKDIR /app
+
+# Copia o pom.xml para baixar as dependências primeiro (cache layer)
+COPY pom.xml .
+RUN mvn dependency:go-offline
+
+# Copia o restante do código fonte
+COPY src ./src
+
+# Compila e empacota a aplicação
+RUN mvn package -DskipTests
+
+# Stage 2: Create the final image using a JRE
+FROM eclipse-temurin:17-jre-jammy
+
+# Define o nome do usuário e grupo não-root
+ARG USER=fiapuser
+ARG GROUP=fiapgroup
+ARG UID=1001
+ARG GID=1001
+
+# Cria o grupo e o usuário
+RUN groupadd -g ${GID} ${GROUP} \
+    && useradd -u ${UID} -g ${GROUP} -m -s /bin/bash ${USER}
+
+# Define o diretório de trabalho no container final
+WORKDIR /app
+
+# Copia o JAR construído do estágio de build
+COPY --from=build /app/target/*.jar app.jar
+
+# Define o usuário que executará a aplicação
+USER ${USER}
+
+# Expõe a porta que a aplicação usará (definida em application.properties)
+EXPOSE 8080
+
+# Define variáveis de ambiente para a conexão com o banco de dados
+# Os valores reais serão fornecidos no comando 'docker run' ou docker-compose.yml
+ENV DB_URL="jdbc:oracle:thin:@oracle-db:1521:XE" \
+    DB_USER="system" \
+    DB_PASSWORD="oracle"
+
+# Comando para executar a aplicação quando o container iniciar
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
