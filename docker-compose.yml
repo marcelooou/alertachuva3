@@ -4,6 +4,7 @@ services:
   oracle-db:
     image: gvenzl/oracle-xe:21-slim-faststart # Imagem Oracle XE 21c (alternativa oficial)
     container_name: oracle-db-gs
+    shm_size: '3g'
     ports:
       - "1521:1521" # Porta padrão do Oracle
     environment:
@@ -19,7 +20,7 @@ services:
         interval: 10s
         timeout: 5s
         retries: 10
-        start_period: 80s
+        start_period: 120s
 
   global-solution-app:
     build:
@@ -30,7 +31,7 @@ services:
       - "8080:8080" # Mapeia a porta da aplicação
     environment:
       # Variáveis de ambiente para a aplicação Java (definidas no application.properties)
-      - DB_URL=jdbc:oracle:thin:@oracle-db:1521/XE # Nome do serviço do container do banco
+      - DB_URL=jdbc:oracle:thin:@oracle-db:1521/XEPDB1 # Nome do serviço do container do banco
       - DB_USER=system
       - DB_PASSWORD=oracle
       # Adicione outras variáveis de ambiente se necessário
@@ -38,13 +39,6 @@ services:
     depends_on:
       oracle-db:
         condition: service_healthy # Garante que a app só inicia após o banco estar pronto
-    networks:
-      - gs_network
 
 volumes:
   oracle_data: # Define o volume nomeado
-
-networks:
-  gs_network:
-    driver: bridge
-

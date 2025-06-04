@@ -27,8 +27,18 @@ ARG GID=1001
 RUN groupadd -g ${GID} ${GROUP} \
     && useradd -u ${UID} -g ${GROUP} -m -s /bin/bash ${USER}
 
+# Instala dependências e limpa cache do apt em uma única camada
+# Muda para root temporariamente para instalar pacotes
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
 # Define o diretório de trabalho no container final
 WORKDIR /app
+
+# Copia o script de espera e garante permissão de execução
+COPY wait-for-oracle.sh .
+RUN chmod +x wait-for-oracle.sh
 
 # Copia o JAR construído do estágio de build
 COPY --from=build /app/target/*.jar app.jar
@@ -46,5 +56,4 @@ ENV DB_URL="jdbc:oracle:thin:@oracle-db:1521:XE" \
     DB_PASSWORD="oracle"
 
 # Comando para executar a aplicação quando o container iniciar
-ENTRYPOINT ["java", "-jar", "app.jar"]
-
+ENTRYPOINT ["./wait-for-oracle.sh", "oracle-db", "java", "-jar", "app.jar"]
