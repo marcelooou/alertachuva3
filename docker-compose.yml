@@ -2,47 +2,43 @@ version: '3.8'
 
 services:
   oracle-db:
-    image: gvenzl/oracle-xe:21-slim-faststart # Imagem Oracle XE 21c (alternativa oficial)
+    image: gvenzl/oracle-xe:21-slim-faststart
     container_name: oracle-db-gs
     ports:
-      - "1521:1521" # Porta padrão do Oracle
+      - "1521:1521"
     environment:
-      - ORACLE_PASSWORD=oracle # Senha para o usuário SYSTEM (e outros)
-      # - APP_USER=fiap_app # Opcional: criar um usuário específico para a app
-      # - APP_USER_PASSWORD=fiap_pass
+      - ORACLE_PASSWORD=oracle
     volumes:
-      - oracle_data:/opt/oracle/oradata # Volume nomeado para persistência dos dados
-      # Monta o diretório de scripts SQL para inicialização
+      - oracle_data:/opt/oracle/oradata
       - ./oracle_scripts:/container-entrypoint-initdb.d
     healthcheck:
-        test: ["CMD", "sqlplus", "system/oracle@//localhost:1521/XE", "as", "sysdba", "<</dev/null", "set", "pagesize", "0", "feedback", "off", ";", "select", "1", "from", "v$instance", "where", "status='OPEN';", "exit;"]
-        interval: 10s
-        timeout: 5s
-        retries: 10
-        start_period: 80s
+      test: >
+        bash -c "echo 'select 1 from v\$instance where status = ''OPEN'';' \
+        | sqlplus system/oracle@//localhost:1521/XE"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 80s
 
   global-solution-app:
     build:
-      context: . # Diretório onde está o Dockerfile
+      context: .
       dockerfile: Dockerfile
     container_name: global-solution-app-gs
     ports:
-      - "8080:8080" # Mapeia a porta da aplicação
+      - "8080:8080"
     environment:
-      # Variáveis de ambiente para a aplicação Java (definidas no application.properties)
-      - DB_URL=jdbc:oracle:thin:@oracle-db:1521/XE # Nome do serviço do container do banco
+      - DB_URL=jdbc:oracle:thin:@oracle-db:1521/XE
       - DB_USER=system
       - DB_PASSWORD=oracle
-      # Adicione outras variáveis de ambiente se necessário
-      # - SPRING_PROFILES_ACTIVE=development
     depends_on:
       oracle-db:
-        condition: service_healthy # Garante que a app só inicia após o banco estar pronto
+        condition: service_healthy
     networks:
       - gs_network
 
 volumes:
-  oracle_data: # Define o volume nomeado
+  oracle_data:
 
 networks:
   gs_network:
